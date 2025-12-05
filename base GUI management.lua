@@ -530,6 +530,38 @@ function Creategraph(parentframe,points)
 	end
 end
 
+function populatetable(parent,data,resource)
+
+	for i,v in data[resource].ItemsperGroup do 
+			local guide = newframe(parent,{
+				color = Colors.Black,
+				size = UDim2.new(0,0,0,0),
+				position = UDim2.new(0,0,0,0),
+				name = "group"
+			})
+			UICorner(guide)
+
+			local index = UITextlabel(guide,{
+				color = Colors.ButtonBlue,
+				size = UDim2.new(0,0,.15,0),
+				position = UDim2.new(0,0,0,0),
+				text = i,
+                name = "Index"
+			})
+			UICorner(index)
+			index:SetAttribute("Index",i)
+
+			local Val = UITextlabel(guide,{
+				color = Colors.ButtonBlue,
+				size = UDim2.new(0,0,.15,0),
+				position = UDim2.new(0,0,0,0),
+				text = v,
+                name = "Value"
+			})
+			UICorner(Val)
+		end
+end 
+
 function createresourcepage(resource,data,gui,averagedpoints)
 	local page = newframe(gui.infoframe,{
 		color = Colors.BackgroundGrey,
@@ -600,6 +632,7 @@ function createresourcepage(resource,data,gui,averagedpoints)
 	tablescrol.VerticalScrollBarInset = Enum.ScrollBarInset.Always
 	tablescrol.ScrollBarThickness = 8
 	tablescrol.Parent = page
+	tablescrol.Name = "Tableframe"
 	tablescrol.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	UICorner(tablescrol)
 	UIPad(tablescrol)
@@ -639,35 +672,7 @@ function createresourcepage(resource,data,gui,averagedpoints)
 		})
 		UICorner(group)
 
-		for i,v in data[resource].ItemsperGroup do 
-			local guide = newframe(tablescrol,{
-				color = Colors.Black,
-				size = UDim2.new(0,0,0,0),
-				position = UDim2.new(0,0,0,0),
-				name = "group"
-			})
-			UICorner(guide)
-
-			local index = UITextlabel(guide,{
-				color = Colors.ButtonBlue,
-				size = UDim2.new(0,0,.15,0),
-				position = UDim2.new(0,0,0,0),
-				text = i,
-                name = "Index"
-			})
-			UICorner(index)
-			index:SetAttribute("Index",i)
-
-			local Val = UITextlabel(guide,{
-				color = Colors.ButtonBlue,
-				size = UDim2.new(0,0,.15,0),
-				position = UDim2.new(0,0,0,0),
-				text = v,
-                name = "Value"
-			})
-			UICorner(Val)
-
-		end
+		populatetable(tablescrol,data,resource)
 
 		--create the graph
 		if averagedpoints then 
@@ -711,7 +716,14 @@ function createresourcepage(resource,data,gui,averagedpoints)
 			if v.ClassName == "TextLabel" then 
 				v:Destroy()
 			end
+		end
+		
+		for i,v in tablescrol:GetChildren() do 
+			if v.Name == "group" then 
+				v:Destroy()
+			end 
 		end 
+		
 	end)
 
 	return page
@@ -787,7 +799,11 @@ function switchpage(page)
 		if currentpage:GetAttribute("FrameType") == "Resourcepage" then 
 			local averagedpoints = average(Raw_resource_data[page],average_data_points)
 
-			if resources[page].Totalresource and averagedpoints then 
+			if resources[page].ItemsperGroup then 
+				populatetable(currentpage.Tableframe,resources,page)
+			end 
+
+			if averagedpoints then 
 				Creategraph(currentpage["Graph"],averagedpoints)
 			else 
 				local graphtext = UITextlabel(currentpage["Graph"],{
@@ -796,6 +812,7 @@ function switchpage(page)
 					position = UDim2.fromScale(0,0),
 					text = "No Data Available for graph"
 				})
+
 			end 
 		
 		end 
