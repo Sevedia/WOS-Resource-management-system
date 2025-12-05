@@ -85,7 +85,12 @@ local requests = {
                     port_group = getportresourcegroup(port,storagenet)
                 
                     if port_group.Totalresource == 0 then 
-                        port_group.Filters[1].Filter = new_resourcegroup 
+                        if new_resourcegroup == "Unused" then
+                            port_group.Filters[1].Filter = "" 
+                        else 
+                            port_group.Filters[1].Filter = new_resourcegroup 
+                        end 
+                        
                         resourcegroups = Getbingroups(storagenet)
                         requestingmicro:Send(true)
                         return 
@@ -121,6 +126,8 @@ function Getbingroups(net)
     local resources = {}
     resources.Unused = {}
     resources.Unused.Ports = {}
+    resources.Unused.ItemsperGroup = {}
+
 
     for i, port in net:GetPorts(1) do 
         
@@ -129,7 +136,7 @@ function Getbingroups(net)
         
         if resources[Filter_resource] then 
             resources[Filter_resource].Ports[#resources[Filter_resource].Ports+1] = port
-            resources[Filter_resource].Filters[#resources[Filter_resource].Filters+1] =  subnet:GetPart("Filter")
+            resources[Filter_resource].Filters[#resources[Filter_resource].Filters+1] = subnet:GetPart("Filter")
             resources[Filter_resource].Hatches[#resources[Filter_resource].Hatches+1] = subnet:GetPart("Hatch")
             table.insert(resources[Filter_resource].ItemsperGroup,0)
             for k,bin in subnet:GetParts("Bin") do 
@@ -159,7 +166,7 @@ function Getbingroups(net)
             end 
         else 
             table.insert(resources.Unused.Ports,port)
-            
+            table.insert(resources.Unused.ItemsperGroup,0)
             --resources.Unused.Ports[#resources.Unused+1] = port
            
         end
@@ -169,10 +176,10 @@ function Getbingroups(net)
     return resources    
 end 
 
--- while this function is currently and place holder eventually it will be very useful to ensure no items are moved around by unathorized partys 
+-- while this function is currently a place holder eventually it will be very useful to ensure no items are moved around by unathorized partys 
 -- not exactly sure how this will work in the future but thats a future me problem, your welcome future me :3
 function securitycheck(requestingmicro) 
-    print(type(requestingmicro:GetOwnerId()))
+    --print(type(requestingmicro:GetOwnerId()))
     if requestingmicro:GetOwnerId() == 118486742 then 
         return true
     end 
