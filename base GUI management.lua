@@ -15,6 +15,8 @@
     3. a graph of the resource over time
 
 	Update the graph to show the time period it has data for along with a refresh button
+
+	add a button to the graph to delete the graph data
 } 
 ]]
 
@@ -22,6 +24,8 @@ local canvas = Network:GetPart("Screen"):GetCanvas()
 local compnet = Network:GetSubnet(2)
 local storageserver = compnet:GetPartFromPort(10,"Microcontroller")
 local disk = Network:GetPart("Disk")
+local keyboard = Network:GetPart("Keyboard")
+local partdata = require("partdata")
 
 
 local raw_data_points = 1800 -- to get roughly an hours worth of history
@@ -31,6 +35,11 @@ local resources = {}
 local GuiObjects = {}
 local Raw_resource_data = {}
 
+local Keyboard_inputs = {}
+
+if disk:Read("Raw_resource_data") then 
+	Raw_resource_data = disk:Read("Raw_resource_data")
+end 
 
 --[[
 local resources = {
@@ -46,44 +55,7 @@ local resources = {
 		Maxresource = 10000,
 	    ItemsperGroup = {2970,2960,}
 	},
-	["Copper"] = {
-		Ports = {"port1","port2"},
-		Filters = {"Filter1,Filter2"},
-		Hatches = {"Hatch1,Hatch2"},
-		Bins = {"Bin1,Bin2"},
-		Totalresource = 6719,
-		Maxresource = 10000,
-		ItemsperGroup = {2420,2900,}
-	},
-	["Quartz"] = {
-		Ports = {"port1","port2"},
-		Filters = {"Filter1,Filter2"},
-		Hatches = {"Hatch1,Hatch2"},
-		Bins = {"Bin1,Bin2"},
-		Totalresource = 6740,
-		Maxresource = 10000,
-		ItemsperGroup = {2350,2900,}
-	},
-	["Apple"] = {
-		Ports = {"port1","port2"},
-		Filters = {"Filter1,Filter2"},
-		Hatches = {"Hatch1,Hatch2"},
-		Bins = {"Bin1,Bin2"},
-		Totalresource = 6900,
-		Maxresource = 10000,
-		ItemsperGroup = {2400,2905,2400,2901,2470,2935,2440,2605,}
-	}
-
-}
-
-local resource_data = {
-	Iron = {1000,1500,800,2000,5040,4000,3500,6000,5000}
 }]]
-
-
-local commands = {
-
-}
 
 local Colors = {
 	Black = Color3.new(0, 0, 0),
@@ -98,6 +70,98 @@ local Colors = {
 }
 
 print("-------------------------------------------")
+
+local commands
+
+commands = {
+	changegroup = {
+
+		setup = function ()
+			commands.changegroup.Data.Objects = newcommandframe("Convert group",true)
+
+			commands.changegroup.Data.Objects.commandbutton.MouseButton1Click:Connect(function()
+				if commands.changegroup.Data.Pressed == false then 
+					table.clear(Keyboard_inputs)
+					commands.changegroup.Data.Pressed = true
+					GuiObjects.Out1.Text = "Enter Resource 1"
+					GuiObjects.Out2.Text = "Enter Resource 2"
+				else 
+					return
+				end
+
+				repeat 
+					task.wait(.1)
+					if commands.changegroup.Data.Pressed == false then return end
+					-- Gets the two input values from the keyboard and ensures they are valid material types or Unused for blank groups
+					for i,v in Keyboard_inputs do 
+						Keyboard_inputs[i] = string.match(v,"[^\n]*")
+						if partdata.Parts[Keyboard_inputs[i]] or Keyboard_inputs[i] == "Unused" then 
+							if GuiObjects.Out1.Text ~= Keyboard_inputs[i] and i == 1 then 
+								GuiObjects.Out1.Text = Keyboard_inputs[i]
+								
+							elseif GuiObjects.Out2.Text ~= Keyboard_inputs[i] and i == 2 then 
+								GuiObjects.Out2.Text = Keyboard_inputs[i]
+							end 
+						else 
+							if i == 1 then 
+								GuiObjects.Out1.Text = "type doesnt exist"
+							elseif i == 2 then 
+								GuiObjects.Out2.Text = "type doesnt exist"
+							end 
+							
+							print("Resource type doesnt exist")
+							Keyboard_inputs[i] = nil
+						end 
+					end 
+					
+				until #Keyboard_inputs >= 2 --have it so the function ends if the pressed value changes to false
+				commands.changegroup.Data.ready = true
+				
+			end)
+
+			commands.changegroup.Data.Objects.confirmbutton.MouseButton1Click:Connect(function()
+				if commands.changegroup.Data.ready == true then 
+
+					local request = task.spawn(function()
+						storageserver:Send("changegroup",Keyboard_inputs[1],Keyboard_inputs[2])
+						local _,returnval = Microcontroller:Receive()
+
+						if returnval == true then 
+							GuiObjects.Out1.Text = "Success"
+							GuiObjects.Out2.Text = "Group converted"
+						else 
+							GuiObjects.Out1.Text = "Failure"
+							GuiObjects.Out2.Text = "Convert failed"
+						end 
+						
+					end)
+					task.wait(.5)
+					task.cancel(request)
+					commands.changegroup.Data.Pressed = false
+					commands.changegroup.Data.ready = false
+				end 
+
+			end)
+
+			commands.changegroup.Data.Objects.dualobject.MouseButton1Click:Connect(function()
+				if commands.changegroup.Data.Pressed == true then 
+					commands.changegroup.Data.Pressed = false 
+					GuiObjects.Out1.Text = "Canceled"
+					GuiObjects.Out2.Text = "Canceled"
+				end 
+				
+			end)
+		end,
+
+		Data = {
+			Pressed = false,
+			ready = false,
+			Objects = {}
+		}
+
+	}
+}
+
 
 --gui creation functions
 function UICorner(parent,radius)
@@ -139,6 +203,71 @@ function UITextlabel(parent, options: {color: Color3,size: UDim2,position: UDim2
 	label.Parent = parent
 	return label
 end
+
+
+function newcommandframe(command_name,cancel: boolean)
+
+	local frame = newframe(GuiObjects.commandframe,{
+		color = Colors.Black,
+		size = UDim2.new(1,0,0,100),
+		position = UDim2.new(0,0,0,0),
+		name = command_name
+	})
+	
+	UICorner(frame)
+	UIPad(frame,UDim.new(0,3),UDim.new(0,3),UDim.new(0,3),UDim.new(0,3))	
+
+	local commandbutton = Instance.new("TextButton")
+	commandbutton.BackgroundColor3 = Colors.ButtonBlue
+	commandbutton.Position = UDim2.new(0,0,0,0)
+	commandbutton.BorderSizePixel = 0
+	commandbutton.TextScaled = true
+	commandbutton.Size = UDim2.new(1,0, 0.5,-1)
+	commandbutton.Text = command_name
+	commandbutton.Name = "commandbutton"
+	commandbutton.Parent = frame
+	UICorner(commandbutton)
+
+	local dualobject
+
+	if cancel then 
+		dualobject = Instance.new("TextButton")
+		dualobject.BackgroundColor3 = Colors.ButtonRed
+		dualobject.Position = UDim2.new(0,0, 0.5,1)
+		dualobject.BorderSizePixel = 0
+		dualobject.TextScaled = true
+		dualobject.Size = UDim2.new(0.5,-1, 0.5,-1)
+		dualobject.Text = "Cancel?"
+		dualobject.Name = "commandbutton"
+		dualobject.Parent = frame
+		UICorner(dualobject)
+	else 
+		dualobject = UITextlabel(frame,{
+			color = Colors.ButtonBlue,
+			position = UDim2.new(0,0, 0.5,1),
+			size = UDim2.new(0.5,-1, 0.5,-1),
+			text = "output",
+			name = "Out1"
+		})
+		UICorner(dualobject)
+	end 
+
+	
+
+	local confirmbutton = Instance.new("TextButton")
+	confirmbutton.BackgroundColor3 = Colors.PercentageGreen
+	confirmbutton.Position = UDim2.new(0.5,1, 0.5,1)
+	confirmbutton.Size = UDim2.new(0.5,-1, 0.5,-1)
+	confirmbutton.BorderSizePixel = 0
+	confirmbutton.TextScaled = true
+	confirmbutton.Text = "Confirm?"
+	confirmbutton.Name = "confirmbutton"
+	confirmbutton.Parent = frame
+	UICorner(confirmbutton)
+
+
+	return {["commandbutton"] = commandbutton,["confirmbutton"] = confirmbutton, ["dualobject"] = dualobject}
+end 
 
 function createmainframes(gui)
 
@@ -188,21 +317,21 @@ function createmainframes(gui)
 	UICorner(gui.outputframe)
 	UIPad(gui.outputframe)	
 
-	gui.out1 = UITextlabel(gui.outputframe,{
+	gui.Out1 = UITextlabel(gui.outputframe,{
 		color = Colors.ButtonBlue,
 		size = UDim2.new(1,0, 0.5,0),
 		position = UDim2.new(0,0, 0,0),
 		text = "output 1"
 	})
-	UICorner(gui.out1)
+	UICorner(gui.Out1)
 
-	gui.out2 = UITextlabel(gui.outputframe,{
+	gui.Out2 = UITextlabel(gui.outputframe,{
 		color = Colors.ButtonBlue,
 		size = UDim2.new(1,0, 0.5,-5),
 		position = UDim2.new(0,0, 0.5,5),
 		text = "output 2"
 	})
-	UICorner(gui.out2)
+	UICorner(gui.Out2)
 	return gui
 end
 
@@ -234,12 +363,13 @@ function NewresourceFrame(parent,resource,data)
 	Resourcebutton.Size = UDim2.new(1,0, 0.5,-1)
 	Resourcebutton.Text = resource
 	Resourcebutton.Parent = frame
+	UICorner(Resourcebutton)
 
 	Resourcebutton.MouseButton1Click:Connect(function()
 		switchpage(resource)
 
 	end)
-	UICorner(Resourcebutton)
+	
 
 	local box2 = UITextlabel(frame,{
 		color = Colors.ButtonBlue,
@@ -314,13 +444,9 @@ function SetupresourceFrames(gui, resources)
 	table.sort(alphabetical,function(first,second) return first:lower() < second:lower() end)
 	-- create the frames in that new alphabetical order
 	for i,v in alphabetical do
-		if gui.resources:FindFirstChild(i) then 
-			continue
-		else 
-			NewresourceFrame(gui.resources,v,resources[v])
-			task.wait(.25)
-		end
-
+		NewresourceFrame(gui.resources,v,resources[v])
+		task.wait(.25)
+		
 	end
 end
 
@@ -478,7 +604,7 @@ function createresourcepage(resource,data,gui,averagedpoints)
 	UICorner(tablescrol)
 	UIPad(tablescrol)
 
-	if data[resource].Totalresource then 
+	if data[resource].ItemsperGroup then 
 		-- creates the graph and table
 		local table_layout = Instance.new("UITableLayout")
 		table_layout.Padding = UDim2.new(0,5, 0,5)
@@ -579,11 +705,11 @@ function createresourcepage(resource,data,gui,averagedpoints)
 		switchpage("Resources")
 		for i,v in graphframe:GetChildren() do 
 			if v.ClassName == "Frame" then 
-				v:remove()
+				v:Destroy()
 			end 
 
 			if v.ClassName == "TextLabel" then 
-				v:remove()
+				v:Destroy()
 			end
 		end 
 	end)
@@ -593,11 +719,8 @@ end
 
 function average(raw,numpoints)
 
-	if not raw then 
-		print("raw = not")
-		return nil
-	end 
-
+	if not raw then return nil end 
+		
 	local pointsperaverage = math.floor(#raw/numpoints)
 	local average = {}
 
@@ -620,7 +743,6 @@ function average(raw,numpoints)
 
 		end 
 	else 
-		print("points too low")
 		return nil
 	end 
 
@@ -629,9 +751,9 @@ end
 
 function Updateresourceamount()
 	storageserver:Send("refresh_resources")
+
 	local listen = task.spawn(function()
 		_, data = Microcontroller:Receive()
-
 		for i, v in data do 
 			if v.Totalresource then 
 				if not Raw_resource_data[i] then 
@@ -646,7 +768,7 @@ function Updateresourceamount()
 				end 
 			end 
 		end 
-		
+		disk:Write("Raw_resource_data",Raw_resource_data)
 		resources = data
 	end)
 	
@@ -663,7 +785,6 @@ function switchpage(page)
 		currentpage = frame
 
 		if currentpage:GetAttribute("FrameType") == "Resourcepage" then 
-			print("graph")
 			local averagedpoints = average(Raw_resource_data[page],average_data_points)
 
 			if resources[page].Totalresource and averagedpoints then 
@@ -680,15 +801,25 @@ function switchpage(page)
 		end 
 		--GuiObjects.infoframe.resources.Visible = false
 	else 
-		currentpage.Visible = false		-- can prolly delete average_data_points from function
+		currentpage.Visible = false		
 		currentpage = createresourcepage(page,resources,GuiObjects,average(Raw_resource_data[page],average_data_points))
 	end
 
 end
 
-Updateresourceamount(resources)
+Updateresourceamount()
 GuiObjects = createmainframes(GuiObjects,Colors)
 SetupresourceFrames(GuiObjects,resources)
+
+for i,v in commands do 
+	v.setup()
+end 
+
+-- events
+keyboard.TextInputted:Connect(function(text,player)
+	table.insert(Keyboard_inputs,text)
+end)
+
 
 -- main running 
 while task.wait(2) do
@@ -696,10 +827,25 @@ while task.wait(2) do
 	local frametype = currentpage:GetAttribute("FrameType")
 
 	if frametype == "MainResources" then 
-		for i,v in currentpage:GetChildren() do 
-			if v.ClassName == "Frame" then
-				local percentage
+		
+		local alphabetical = {}
+		for i,v in pairs(resources) do 
+			table.insert(alphabetical,i)
+		end
 
+		table.sort(alphabetical,function(first,second) return first:lower() < second:lower() end)
+		-- create the frames in that new alphabetical order
+		for i,v in alphabetical do
+
+			if not currentpage:FindFirstChild(v) then  
+				NewresourceFrame(GuiObjects.resources,v,resources[v])
+				task.wait(.25)
+			end
+		end
+
+		for i,v in currentpage:GetChildren() do 
+			if v.ClassName == "Frame" and resources[v.Name] then
+				local percentage
 				if resources[v.Name].Totalresource and resources[v.Name].Maxresource then
 					percentage = resources[v.Name].Totalresource/resources[v.Name].Maxresource
 				else
@@ -725,6 +871,13 @@ while task.wait(2) do
 				end
 
 				task.wait(.5)
+			elseif v.ClassName == "Frame" and not resources[v] then
+			
+				v:Destroy()
+				if Raw_resource_data[v.Name] then 
+					Raw_resource_data[v.Name] = nil
+				end 
+				
 			end
 
 		end
@@ -768,4 +921,7 @@ while task.wait(2) do
 
 		
 	end
+
 end
+
+
