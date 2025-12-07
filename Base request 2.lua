@@ -49,7 +49,7 @@ local requests = {
 
                     requestingmicro:Send(true)    -- tells the micro it can send the items
                     Microcontroller:Receive() -- recieves the signal that the items have moved
-                    resources[itemtype].Totalresource += quantity
+                    resources[itemtype].Totalresource = resources[itemtype].Totalresource + quantity
                     togglehatch(resources[itemtype].Hatches,false)
                 else 
                     print("security check faield")
@@ -69,7 +69,7 @@ local requests = {
                 requestingmicro:Send(true)
                 task.spawn(function()
                     Microcontroller:Receive()
-                    resources[itemtype].Totalresource -= quantity
+                    resources[itemtype].Totalresource = resources[itemtype].Totalresource - quantity
                     togglehatch(resources[itemtype].Hatches,false)
                 end)
                 
