@@ -75,7 +75,6 @@ local commands
 
 commands = {
 	changegroup = {
-
 		setup = function ()
 			commands.changegroup.Data.Objects = newcommandframe("Convert group",true)
 
@@ -114,7 +113,7 @@ commands = {
 						end 
 					end 
 					
-				until #Keyboard_inputs >= 2 --have it so the function ends if the pressed value changes to false
+				until #Keyboard_inputs >= 2 
 				commands.changegroup.Data.ready = true
 				
 			end)
@@ -139,6 +138,7 @@ commands = {
 					task.cancel(request)
 					commands.changegroup.Data.Pressed = false
 					commands.changegroup.Data.ready = false
+
 				end 
 
 			end)
@@ -152,13 +152,96 @@ commands = {
 				
 			end)
 		end,
-
 		Data = {
 			Pressed = false,
 			ready = false,
 			Objects = {}
 		}
+	},
 
+	movetemp = {
+		setup = function()
+			commands.movetemp.Data.Objects = newcommandframe("Move to Temp",true)
+
+			commands.movetemp.Data.Objects.commandbutton.MouseButton1Click:Connect(function()
+				
+				if commands.movetemp.Data.Pressed == false then 
+					table.clear(Keyboard_inputs)
+					commands.movetemp.Data.Pressed = true
+					GuiObjects.Out1.Text = "Enter Resource and group"
+					GuiObjects.Out2.Text = "Enter fill or empty"
+				else 
+					return
+				end
+
+				-- running loop to get all usuer inputted values before continuing
+				repeat 
+					task.wait(.1)
+					if commands.movetemp.Data.Pressed == false then return end
+					
+					for i,v in Keyboard_inputs do 
+						local Firstvalue = string.match(v,"%a*")
+						local GroupID = tonumber(string.match(v,"%d+"))
+						
+						if i == 1 and partdata.Parts[Firstvalue] and resources[Firstvalue].Ports[GroupID] then 
+							if GuiObjects.Out1.Text ~= string.match(v,"[^\n]*") then 
+								GuiObjects.Out1.Text = string.match(v,"[^\n]*")
+							end
+						elseif i == 2 and (string.lower(Firstvalue) == "empty" or "fill") then --test to make sure this condition works
+							if GuiObjects.Out2.Text ~= Firstvalue then
+								GuiObjects.Out2.Text = Firstvalue
+							end 
+						else 
+							if i == 1 then 
+								GuiObjects.Out1.Text = "Invalid entry"
+							elseif i == 2 then 
+								GuiObjects.Out2.Text = "Invalid entry"
+							end 
+							print("Invalid entry")
+							Keyboard_inputs[i] = nil
+						end 
+
+					end 
+
+				until #Keyboard_inputs >= 2
+				commands.movetemp.Data.ready = true
+
+			end)
+
+			commands.movetemp.Data.Objects.confirmbutton.MouseButton1Click:Connect(function()
+				if commands.movetemp.Data.ready == true then 
+					
+					local request = task.spawn(function()
+						local Firstvalue = string.match(Keyboard_inputs[1],"%a*")
+						local GroupID = tonumber(string.match(Keyboard_inputs[1],"%d+"))
+						local Secondvalue = string.match(Keyboard_inputs[2],"[^\n]*")
+						
+						storageserver:Send("Tempmove",Firstvalue,Secondvalue,resources[Firstvalue].Ports[GroupID])
+
+						local _,returnval = Microcontroller:Receive()
+
+						if returnval == true then 
+							GuiObjects.Out1.Text = "Success"
+							GuiObjects.Out2.Text = "Items moved"
+						else 
+							GuiObjects.Out1.Text = "Failure"
+							GuiObjects.Out2.Text = returnval
+						end 
+						
+					end)
+					task.wait(.5)
+					task.cancel(request)
+					commands.movetemp.Data.Pressed = false
+					commands.movetemp.Data.ready = false
+				end
+				
+			end)
+		end,
+		Data = {
+			Pressed = false,
+			ready = false,
+			Objects = {}
+		}
 	}
 }
 
@@ -499,8 +582,12 @@ function Creategraph(parentframe,points)
 
 	for i,v in points do 
 		local percentage = (v)/largestval
+		
 		posvectors[i] = Vector2.new((i-1)*xspacing+10,screensize.Y-(math.floor(percentage*screensize.Y)-10))
-
+		if posvectors[i].y > screensize.Y then 
+			posvectors[i] = Vector2.new(posvectors[i].X,screensize.Y-5)
+		end 
+		
 		local frame = newframe(parentframe,{
 			color = Colors.PercentageGreen,
 			size = UDim2.fromOffset(10,10),
@@ -531,6 +618,12 @@ function Creategraph(parentframe,points)
 end
 
 function populatetable(parent,data,resource)
+
+	for i,v in parent:GetChildren() do 
+		if v.Name == "group" then 
+			v:Destroy()
+		end
+	end 
 
 	for i,v in data[resource].ItemsperGroup do 
 			local guide = newframe(parent,{
@@ -707,6 +800,7 @@ function createresourcepage(resource,data,gui,averagedpoints)
 	end
 
 	backbutton.MouseButton1Click:Connect(function()
+		
 		switchpage("Resources")
 		for i,v in graphframe:GetChildren() do 
 			if v.ClassName == "Frame" then 
@@ -838,6 +932,9 @@ keyboard.TextInputted:Connect(function(text,player)
 end)
 
 
+--storageserver:Send("Tempmove","Copper","Empty",resources.Copper.Ports[1])
+
+
 -- main running 
 while task.wait(2) do
     Updateresourceamount()
@@ -888,7 +985,7 @@ while task.wait(2) do
 				end
 
 				task.wait(.5)
-			elseif v.ClassName == "Frame" and not resources[v] then
+			elseif v.ClassName == "Frame" and not resources[v.Name] then
 			
 				v:Destroy()
 				if Raw_resource_data[v.Name] then 
@@ -896,49 +993,73 @@ while task.wait(2) do
 				end 
 				
 			end
-
 		end
 	elseif frametype == "Resourcepage" then
-
-		if currentpage["Totalresourcetext"].Text ~= "<b>Total Resource:</b>"  then 
-			currentpage["Totalresourcetext"].Text = "<b>Total Resource:</b>" 
-		end
-		
-		if currentpage["Totalresourcenumber"].Text ~= (resources[currentpage.Name].Totalresource or 0)  then 
-			currentpage["Totalresourcenumber"].Text = (resources[currentpage.Name].Totalresource or 0)
-		end
-		
-		if currentpage["Resourcetype"].Text ~= currentpage.Name then 
-			currentpage["Resourcetype"].Text = currentpage.Name
-		end
-		-- updates the table frame
-		if currentpage["ScrollingFrame"]:FindFirstChild("UITableLayout") then 
-			
-			if currentpage["ScrollingFrame"]["Index"]["Group"].Text ~= "Group" then 
-				currentpage["ScrollingFrame"]["Index"]["Group"].Text = "Group"
-			end 
-
-			if currentpage["ScrollingFrame"]["Index"]["Quantity"].Text ~= "Quantity" then 
-				currentpage["ScrollingFrame"]["Index"]["Quantity"].Text = "Quantity"
-			end 
-
-			for i,v in currentpage["ScrollingFrame"]:GetChildren() do 
-				if v.Name == "group" then 
-					if v["Index"].Text ~= v["Index"]:GetAttribute("Index") then 
-						v["Index"].Text = v["Index"]:GetAttribute("Index")
-					end
-
-					if v["Value"].Text ~= resources[currentpage.Name].ItemsperGroup[v["Index"]:GetAttribute("Index")] then 
-						v["Value"].Text = resources[currentpage.Name].ItemsperGroup[v["Index"]:GetAttribute("Index")]
-					end
-
-				end 
+		if resources[currentpage.Name] then 
+			if currentpage["Totalresourcetext"].Text ~= "<b>Total Resource:</b>"  then 
+				currentpage["Totalresourcetext"].Text = "<b>Total Resource:</b>" 
 			end
+			
+			if currentpage["Totalresourcenumber"].Text ~= (resources[currentpage.Name].Totalresource or 0)  then 
+				currentpage["Totalresourcenumber"].Text = (resources[currentpage.Name].Totalresource or 0)
+			end
+			
+			if currentpage["Resourcetype"].Text ~= currentpage.Name then 
+				currentpage["Resourcetype"].Text = currentpage.Name
+			end
+			-- updates the table frame
+
+			if currentpage["Tableframe"]:FindFirstChild("UITableLayout") then 
+				
+				if currentpage["Tableframe"]["Index"]["Group"].Text ~= "Group" then 
+					currentpage["Tableframe"]["Index"]["Group"].Text = "Group"
+				end 
+
+				if currentpage["Tableframe"]["Index"]["Quantity"].Text ~= "Quantity" then 
+					currentpage["Tableframe"]["Index"]["Quantity"].Text = "Quantity"
+				end 
+
+				local indexes = 0
+				for i,v in currentpage["Tableframe"]:GetChildren() do 
+					if v.Name == "group" then 
+						indexes += 1
+
+						if v["Index"].Text ~= tostring(v["Index"]:GetAttribute("Index")) then 
+							v["Index"].Text = v["Index"]:GetAttribute("Index")
+						end
+
+						if resources[currentpage.Name].ItemsperGroup[v["Index"]:GetAttribute("Index")] then
+							if v["Value"].Text ~= tostring(resources[currentpage.Name].ItemsperGroup[v["Index"]:GetAttribute("Index")]) then 
+								v["Value"].Text = resources[currentpage.Name].ItemsperGroup[v["Index"]:GetAttribute("Index")]
+							end
+						else 
+							continue
+						end
+					end 
+				end
+				-- recreates the table if groups got changed around
+				if indexes ~= #resources[currentpage.Name].ItemsperGroup then 
+					local count = 0
+					if #resources[currentpage.Name].ItemsperGroup == 0 then 
+						for i,v in resources[currentpage.Name].ItemsperGroup do 
+							count += 1
+						end
+						if indexes ~= count then 
+							populatetable(currentpage["Tableframe"],resources,currentpage.Name)
+						end
+					else 
+						populatetable(currentpage["Tableframe"],resources,currentpage.Name)
+					end 
+					
+					
+				end 
+
+			end 
+		else
+			switchpage("Resources")
+			
 		end 
-
-		
 	end
-
 end
 
 
