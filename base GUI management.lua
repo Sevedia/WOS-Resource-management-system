@@ -20,11 +20,13 @@
 } 
 ]]
 
-local canvas = Network:GetPart("Screen"):GetCanvas()
+local screen = Network:GetPart("Screen")
+local canvas = screen:GetCanvas()
 local compnet = Network:GetSubnet(2)
 local storageserver = compnet:GetPartFromPort(10,"Microcontroller")
 local disk = Network:GetPart("Disk")
 local keyboard = Network:GetPart("Keyboard")
+-- i dont know if this code will run but it silences the error
 local partdata = require("partdata")
 
 
@@ -245,7 +247,6 @@ commands = {
 	}
 }
 
-
 --gui creation functions
 function UICorner(parent,radius)
 	local corner = Instance.new("UICorner")
@@ -404,7 +405,8 @@ function createmainframes(gui)
 		color = Colors.ButtonBlue,
 		size = UDim2.new(1,0, 0.5,0),
 		position = UDim2.new(0,0, 0,0),
-		text = "output 1"
+		text = "output 1",
+		name = nil
 	})
 	UICorner(gui.Out1)
 
@@ -412,7 +414,8 @@ function createmainframes(gui)
 		color = Colors.ButtonBlue,
 		size = UDim2.new(1,0, 0.5,-5),
 		position = UDim2.new(0,0, 0.5,5),
-		text = "output 2"
+		text = "output 2",
+		name = nil
 	})
 	UICorner(gui.Out2)
 	return gui
@@ -484,7 +487,8 @@ function NewresourceFrame(parent,resource,data)
 		color = Colors.White,
 		position = UDim2.new(0,0,0,0),
 		size = UDim2.new(1,0,1,0),
-		text = math.floor(Resourcepercentage*100) ..'%'--.." Full"
+		text = math.floor(Resourcepercentage*100) ..'%',  --.." Full"
+		name = nil
 	})
 	percentbox.BackgroundTransparency = 1
 	UICorner(percentbox)
@@ -549,7 +553,8 @@ function Creategraph(parentframe,points)
 	graph.mainfrrame = newframe(parentframe,{
 		color = Colors.Black,
 		size = UDim2.new(1,0, 1,0),
-		position = UDim2.new(0,0,0,0)
+		position = UDim2.new(0,0,0,0),
+		name = nil
 	})
 	UIPad(graph.mainfrrame,UDim.new(.02,0),UDim.new(.02,0),UDim.new(.02,0),UDim.new(.02,0))
 
@@ -564,7 +569,8 @@ function Creategraph(parentframe,points)
 		local row = newframe(graph.mainfrrame,{
 			color = Colors.BackgroundGrey,
 			size = UDim2.new(0,0,0,0),
-			position = UDim2.new(0,0,0,0)
+			position = UDim2.new(0,0,0,0),
+			name = nil
 		})
 
 		row.BackgroundTransparency = 1
@@ -573,7 +579,8 @@ function Creategraph(parentframe,points)
 			local block = newframe(row,{
 				color = Colors.White,
 				position = UDim2.new(0,0,0,0),
-				size = UDim2.new(0,0,0,0)
+				size = UDim2.new(0,0,0,0),
+				name = nil
 			})
 		end
 	end
@@ -591,11 +598,12 @@ function Creategraph(parentframe,points)
 		local frame = newframe(parentframe,{
 			color = Colors.PercentageGreen,
 			size = UDim2.fromOffset(10,10),
-			position = UDim2.new(0,posvectors[i].X,0,posvectors[i].Y)
+			position = UDim2.new(0,posvectors[i].X,0,posvectors[i].Y),
+			name = nil
 		})
 		frame.ZIndex = 5
 		frame.AnchorPoint = Vector2.new(.5,.5)
-		UICorner(frame,UDim.new(1,0),UDim.new(1,0),UDim.new(1,0),UDim.new(1,0))		
+		UICorner(frame,UDim.new(1,0))		
 	end
 
 	-- make the lines
@@ -608,7 +616,8 @@ function Creategraph(parentframe,points)
 			local line = newframe(parentframe,{
 				color = Colors.linegreen,
 				size = UDim2.fromOffset(magnitude,5),
-				position = UDim2.new(0,(posvectors[i+1].X+posvectors[i].X)/2,0,(posvectors[i+1].Y+posvectors[i].Y)/2)
+				position = UDim2.new(0,(posvectors[i+1].X+posvectors[i].X)/2,0,(posvectors[i+1].Y+posvectors[i].Y)/2),
+				name = nil
 			})
 			line.AnchorPoint = Vector2.new(0.5,0.5)
 			line.Rotation = angle
@@ -794,7 +803,8 @@ function createresourcepage(resource,data,gui,averagedpoints)
 			color = Colors.BackgroundGreen,
 			size = UDim2.new(1,0,1,0),
 			position = UDim2.fromScale(0,0),
-			text = "No Data Available for graph"
+			text = "No Data Available for graph",
+			name = nil
 		})
 
 	end
@@ -859,7 +869,7 @@ function Updateresourceamount()
 	storageserver:Send("refresh_resources")
 
 	local listen = task.spawn(function()
-		_, data = Microcontroller:Receive()
+		local _, data = Microcontroller:Receive()
 		for i, v in data do 
 			if v.Totalresource then 
 				if not Raw_resource_data[i] then 
@@ -919,7 +929,7 @@ function switchpage(page)
 end
 
 Updateresourceamount()
-GuiObjects = createmainframes(GuiObjects,Colors)
+GuiObjects = createmainframes(GuiObjects)
 SetupresourceFrames(GuiObjects,resources)
 
 for i,v in commands do 
