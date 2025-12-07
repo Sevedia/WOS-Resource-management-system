@@ -3,7 +3,11 @@
     resources = {
     [Unused] = {
         Ports = {port1,port2}
-        }
+        },
+    ["Temp"] = {
+    Ports = port
+    
+    }
 
     [Iron] = { 
         Ports = {port1,port2}
@@ -32,6 +36,7 @@ TO-DO
 
 local storagenet = Network:GetSubnet(16)
 local repr = require("repr")
+local partdata = require("partdata")
 
 local resourcegroups = {}
 print("-------------------------------------------")
@@ -107,6 +112,55 @@ local requests = {
        -- printresourcegroups()
     end,
 
+    Tempmove = function(requestingmicro, resources,resourcetomove, movedirection, port)
+        
+        if resources.Temp and securitycheck(requestingmicro) then 
+            if partdata.Parts[resourcetomove] and resources[resourcetomove] then 
+               
+                local port_group = getportresourcegroup(port,storagenet)
+
+
+                if string.lower(movedirection) == "fill" then -- fills the resource group from the temp bins
+                    resources.Temp.SorterOut.Resource = resourcetomove
+                    resources.Temp.SorterOut.Rate = 0
+                    resources.Temp.Hatch.SwitchValue = true
+                    port_group.Hatches[1].SwitchValue = true
+
+                    task.wait(.2)
+                    resources.Temp.SorterOut:Sort(resources.Temp.Totalresource)
+                    
+                    resources.Temp.Hatch.SwitchValue = false
+                    port_group.Hatches[1].SwitchValue = false
+                    requestingmicro:Send(true,"Success")
+
+                elseif string.lower(movedirection) == "empty" then -- empties the resource group into the temp bins
+                    resources.Temp.SorterIn.Resource = resourcetomove
+                    resources.Temp.SorterIn.Rate = 0
+                    resources.Temp.Hatch.SwitchValue = true
+                    port_group.Hatches[1].SwitchValue = true
+                    
+                    task.wait(.2)
+                    resources.Temp.SorterIn:Sort(port_group.Totalresource)
+                    
+                    resources.Temp.Hatch.SwitchValue = false
+                    port_group.Hatches[1].SwitchValue = false
+                    requestingmicro:Send(true,"Success")
+
+                else 
+                    requestingmicro:Send(false,"invalid direction")
+                    print("invalid direction")
+                end 
+            else 
+                requestingmicro:Send(false,"resource doesnt exist")
+                 print("resource doesnt exist")
+            end 
+        else 
+            requestingmicro:Send(false,"temp doesnt exist")
+            print("temp doesnt exist")
+        end
+
+    end,
+
     printgroups = function()
         printresourcegroups()
     end, 
@@ -121,6 +175,11 @@ local requests = {
     end
 
 } 
+
+local specialgroups = {
+    "Unused",
+    "Temp",
+}
 
 function Getbingroups(net) 
     local resources = {}
@@ -142,7 +201,7 @@ function Getbingroups(net)
             for k,bin in subnet:GetParts("Bin") do 
                  
                 resources[Filter_resource].Bins[#resources[Filter_resource].Bins+1] = bin
-                resources[Filter_resource].Totalresource = resources[Filter_resource].Totalresource + bin:GetResourceAmount()
+                resources[Filter_resource].Totalresource += bin:GetResourceAmount()
                 resources[Filter_resource].Maxresource = resources[Filter_resource].Maxresource + (bin.Size.X * bin.Size.Y * bin.Size.Z)
                 resources[Filter_resource].ItemsperGroup[#resources[Filter_resource].ItemsperGroup] += bin:GetResourceAmount() 
             end 
@@ -160,8 +219,8 @@ function Getbingroups(net)
 
             for k,bin in subnet:GetParts("Bin") do 
                 resources[Filter_resource].Bins[#resources[Filter_resource].Bins+1] = bin
-                resources[Filter_resource].Totalresource = resources[Filter_resource].Totalresource + bin:GetResourceAmount()
-                resources[Filter_resource].Maxresource = resources[Filter_resource].Maxresource + (bin.Size.X * bin.Size.Y * bin.Size.Z)
+                resources[Filter_resource].Totalresource += bin:GetResourceAmount()
+                resources[Filter_resource].Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
                 resources[Filter_resource].ItemsperGroup[#resources[Filter_resource].ItemsperGroup] += bin:GetResourceAmount() 
             end 
         else 
@@ -173,6 +232,38 @@ function Getbingroups(net)
         --task.wait()
     end 
 
+    if net:GetSubnet(5) then 
+       
+        local tempnet = net:GetSubnet(5)
+        resources.Temp = {}
+        resources.Temp.Tempnet = tempnet
+        resources.Temp.SorterIn = tempnet:GetPartFromPort(1,"Sorter")
+        resources.Temp.SorterOut = tempnet:GetPartFromPort(2,"Sorter")
+        resources.Temp.Hatch = tempnet:GetPart("Hatch")
+        resources.Temp.Totalresource = 0
+        resources.Temp.Maxresource = 0
+        resources.Temp.ItemsperGroup = {}
+
+        for i,bin in tempnet:GetParts("Bin") do 
+            resources.Temp.Totalresource +=  bin:GetResourceAmount()
+            resources.Temp.Maxresource += bin.Size.X * bin.Size.Y * bin.Size.Z
+
+            if resources.Temp.ItemsperGroup[bin:GetResource()] then 
+                resources.Temp.ItemsperGroup[bin:GetResource()] += bin:GetResourceAmount()
+            elseif bin:GetResource() == nil  then 
+                if resources.Temp.ItemsperGroup["Empty"] then 
+                    resources.Temp.ItemsperGroup["Empty"] += bin:GetResourceAmount()
+                else 
+                    resources.Temp.ItemsperGroup["Empty"] = bin:GetResourceAmount()
+                end
+                
+            else
+                resources.Temp.ItemsperGroup[bin:GetResource()] = bin:GetResourceAmount()
+            end
+             
+        end
+
+    end 
     return resources    
 end 
 
@@ -206,6 +297,7 @@ function getportresourcegroup(port,net)
     for i,bin in portnet:GetParts("Bin") do 
         table.insert(port_group.Bins,bin)
         port_group.Totalresource += bin:GetResourceAmount()
+       
         port_group.Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
     end 
 
@@ -216,7 +308,7 @@ end
 resourcegroups = Getbingroups(storagenet)
 
 function printresourcegroups()
-    for i,v in resourcegroups.Copper.ItemsperGroup do 
+    for i,v in resourcegroups do 
         print(i," | ",v)
         
         --[[for k,l in v do 
