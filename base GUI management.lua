@@ -897,7 +897,6 @@ local function Updateresourceamount()
 end
 
 function switchpage(page)
-	print("attempting to switch")
 	if GuiObjects.infoframe:FindFirstChild(page) then
 		--updateresourcepage()
 		local frame = GuiObjects.infoframe:FindFirstChild(page)

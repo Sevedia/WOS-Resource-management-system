@@ -43,12 +43,11 @@ local printresourcegroups
 
 local requests = {
 	Deposit = function(requestingmicro, resources, itemtype, quantity)
-		if
-			resources[itemtype] and (resources[itemtype].Totalresource + quantity <= resources[itemtype].Maxresource)
-		then
+		if resources[itemtype] and (resources[itemtype].Totalresource < resources[itemtype].Maxresource) then
 			if securitycheck(requestingmicro) then
 				togglehatch(resources[itemtype].Hatches, true)
 
+				task.wait(.2)
 				requestingmicro:Send(true) -- tells the micro it can send the items
 				Microcontroller:Receive() -- recieves the signal that the items have moved
 				resources[itemtype].Totalresource = resources[itemtype].Totalresource + quantity
@@ -130,6 +129,10 @@ local requests = {
 					port_group.Hatches[1].SwitchValue = false
 					requestingmicro:Send(true, "Success")
 				elseif string.lower(movedirection) == "empty" then -- empties the resource group into the temp bins
+					for i,v in resources.Temp.Tempnet:GetParts("Bin") do 
+						v.Resource = resourcetomove
+					end
+
 					resources.Temp.SorterIn.Resource = resourcetomove
 					resources.Temp.SorterIn.Rate = 0
 					resources.Temp.Hatch.SwitchValue = true
@@ -208,6 +211,7 @@ function Getbingroups(net)
 			resources[Filter_resource].ItemsperGroup = { 0 }
 
 			for k, bin in subnet:GetParts("Bin") do
+				bin.Resource = Filter_resource
 				resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
 				resources[Filter_resource].Totalresource += bin:GetResourceAmount()
 				resources[Filter_resource].Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
