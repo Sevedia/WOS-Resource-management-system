@@ -33,8 +33,8 @@ TO-DO
 ]]
 
 local storagenet = Network:GetSubnet(16)
-local _repr = require("repr")
-local partdata = require("partdata")
+local _repr: typeof(require("@wos/repr")) = (require :: any)("repr")
+local partdata: typeof(require("@wos/partdata")) = (require :: any)("partdata")
 
 local resourcegroups = {}
 print("-------------------------------------------")

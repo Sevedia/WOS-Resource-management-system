@@ -26,7 +26,6 @@ local compnet = Network:GetSubnet(2)
 local storageserver = compnet:GetPartFromPort(10, "Microcontroller")
 local disk = Network:GetPart("Disk")
 local keyboard = Network:GetPart("Keyboard")
--- i dont know if this code will run but it silences the error
 --local partdata = require("partdata")
 local partdata: typeof(require("@wos/partdata")) = (require :: any)("partdata")
 
