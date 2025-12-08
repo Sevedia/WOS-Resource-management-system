@@ -241,12 +241,22 @@ commands = {
 					commands.movetemp.Data.ready = false
 				end
 			end)
+
+			commands.movetemp.Data.Objects.dualobject.MouseButton1Click:Connect(function()  
+				if commands.movetemp.Data.Pressed == true then
+					commands.movetemp.Data.Pressed = false
+					commands.movetemp.Data.ready = false
+					GuiObjects.Out1.Text = "Canceled"
+					GuiObjects.Out2.Text = "Canceled"
+				end
+			
+			end)
 		end,
 		Data = {
 			Pressed = false,
 			ready = false,
 			Objects = {},
-		},
+		}, 
 	},
 }
 
@@ -805,6 +815,7 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 	end
 
 	backbutton.MouseButton1Click:Connect(function()
+		print("switching")
 		switchpage("Resources")
 		for i, v in graphframe:GetChildren() do
 			if v.ClassName == "Frame" then
@@ -855,7 +866,7 @@ local function average(raw, numpoints)
 		return nil
 	end
 
-	return average
+	return averaged
 end
 
 local function Updateresourceamount()
@@ -886,6 +897,7 @@ local function Updateresourceamount()
 end
 
 function switchpage(page)
+	print("attempting to switch")
 	if GuiObjects.infoframe:FindFirstChild(page) then
 		--updateresourcepage()
 		local frame = GuiObjects.infoframe:FindFirstChild(page)
@@ -915,8 +927,7 @@ function switchpage(page)
 		--GuiObjects.infoframe.resources.Visible = false
 	else
 		currentpage.Visible = false
-		currentpage =
-			createresourcepage(page, resources, GuiObjects, average(Raw_resource_data[page], average_data_points))
+		currentpage = createresourcepage(page, resources, GuiObjects, average(Raw_resource_data[page], average_data_points))
 	end
 end
 
