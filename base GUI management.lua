@@ -690,6 +690,16 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 	})
 	UICorner(graphframe)
 
+	local graphpointnum = UITextlabel(page, {
+		color = Colors.ButtonBlue,
+		size = UDim2.new(0.59, 0, 0.07, 0),
+		position = UDim2.new(0.41, 0, 0.93, 0),
+		text = #Raw_resource_data[resource] or 0,
+		name = "graphpointnum",
+	})
+	UICorner(graphpointnum)
+
+
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.Parent = graphframe
 
@@ -815,7 +825,6 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 	end
 
 	backbutton.MouseButton1Click:Connect(function()
-		print("switching")
 		switchpage("Resources")
 		for i, v in graphframe:GetChildren() do
 			if v.ClassName == "Frame" then
@@ -907,6 +916,8 @@ function switchpage(page)
 		if currentpage:GetAttribute("FrameType") == "Resourcepage" then
 			local averagedpoints = average(Raw_resource_data[page], average_data_points)
 
+			currentpage:FindFirstChild("graphpointnum").Text = #Raw_resource_data[page] or 0
+
 			if resources[page].ItemsperGroup then
 				populatetable(currentpage.Tableframe, resources, page)
 			end
@@ -914,6 +925,7 @@ function switchpage(page)
 			if averagedpoints then
 				Creategraph(currentpage["Graph"], averagedpoints)
 			else
+
 				local _graphtext = UITextlabel(currentpage["Graph"], {
 					color = Colors.BackgroundGreen,
 					size = UDim2.new(1, 0, 1, 0),
@@ -927,6 +939,7 @@ function switchpage(page)
 	else
 		currentpage.Visible = false
 		currentpage = createresourcepage(page, resources, GuiObjects, average(Raw_resource_data[page], average_data_points))
+		
 	end
 end
 

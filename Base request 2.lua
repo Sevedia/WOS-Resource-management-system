@@ -193,7 +193,7 @@ function Getbingroups(net)
 			resources[Filter_resource].Hatches[#resources[Filter_resource].Hatches + 1] = subnet:GetPart("Hatch")
 			table.insert(resources[Filter_resource].ItemsperGroup, 0)
 			for k, bin in subnet:GetParts("Bin") do
-				resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
+				--resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
 				resources[Filter_resource].Totalresource = resources[Filter_resource].Totalresource
 					+ bin:GetResourceAmount()
 				resources[Filter_resource].Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
@@ -205,14 +205,14 @@ function Getbingroups(net)
 			resources[Filter_resource].Ports = { port }
 			resources[Filter_resource].Filters = { subnet:GetPart("Filter") }
 			resources[Filter_resource].Hatches = { subnet:GetPart("Hatch") }
-			resources[Filter_resource].Bins = {}
+			--resources[Filter_resource].Bins = {}
 			resources[Filter_resource].Totalresource = 0
 			resources[Filter_resource].Maxresource = 0
 			resources[Filter_resource].ItemsperGroup = { 0 }
 
 			for k, bin in subnet:GetParts("Bin") do
 				bin.Resource = Filter_resource
-				resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
+				--resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
 				resources[Filter_resource].Totalresource += bin:GetResourceAmount()
 				resources[Filter_resource].Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
 				resources[Filter_resource].ItemsperGroup[#resources[Filter_resource].ItemsperGroup] += bin:GetResourceAmount()
@@ -275,7 +275,7 @@ end
 function getportresourcegroup(port, net)
 	local portnet = net:GetSubnet(port)
 	local port_group = {}
-	port_group.Bins = {}
+	--port_group.Bins = {}
 	port_group.Totalresource = 0
 	port_group.Maxresource = 0
 
@@ -284,7 +284,7 @@ function getportresourcegroup(port, net)
 	port_group.Hatches = { portnet:GetPart("Hatch") }
 
 	for i, bin in portnet:GetParts("Bin") do
-		table.insert(port_group.Bins, bin)
+		--table.insert(port_group.Bins, bin)
 		port_group.Totalresource += bin:GetResourceAmount()
 
 		port_group.Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)

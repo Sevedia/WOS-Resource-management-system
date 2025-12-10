@@ -36,8 +36,6 @@ while task.wait(1) do
 						sending_sorter:Sort(v:GetAmount())
                         task.wait(.2)
 						storageserver:Send()
-
-                        print("bins")
 					end
 				end)
 				task.wait(0.5)
