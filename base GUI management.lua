@@ -689,12 +689,16 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 		name = "Graph",
 	})
 	UICorner(graphframe)
+	local points = 0
+	if Raw_resource_data[resource] then 
+		points = #Raw_resource_data[resource]
+	end 
 
 	local graphpointnum = UITextlabel(page, {
 		color = Colors.ButtonBlue,
 		size = UDim2.new(0.59, 0, 0.07, 0),
 		position = UDim2.new(0.41, 0, 0.93, 0),
-		text = #Raw_resource_data[resource] or 0,
+		text = points,
 		name = "graphpointnum",
 	})
 	UICorner(graphpointnum)
