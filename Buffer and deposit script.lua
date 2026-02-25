@@ -3,7 +3,7 @@ local storageserver = storagenet:GetPartFromPort(10, "Microcontroller")
 local bins = Network:GetPartsFromPort(3, "Bin")
 local hatch = Network:GetPart("Hatch")
 
-local bufferamount = 500
+local bufferamount = 0
 local resourcegroups = {}
 
 print("_________________________")
@@ -17,9 +17,7 @@ local function sendmessage(command, arguments)
 		end,
 
 		DepositItem = function(item, quantity)
-			hatch.SwitchValue = true
-
-			storageserver:Send("Moveitem", "Deposit", item, quantity)
+			storageserver:Send("Moveitem", "Deposit", item, quantity, hatch)
 			local val = { Microcontroller:Receive() }
 
 			if val[2] == true then
@@ -27,7 +25,6 @@ local function sendmessage(command, arguments)
 			else
 				print("item failed to move, error: ", val[3])
 			end
-			hatch.SwitchValue = false
 		end,
 	}
 
@@ -42,13 +39,14 @@ local function sendmessage(command, arguments)
 		task.delay(0.5, function(thread)
 			if coroutine.status(thread) ~= "dead" then
 				print("Client unable to perform action")
+				storageserver = storagenet:GetPartFromPort(10, "Microcontroller")
 				task.cancel(thread)
 			end
 		end, thread)
 
 		repeat
 			task.wait()
-		until coroutine.status(thread)
+		until coroutine.status(thread) == "dead"
 
 		hatch.SwitchValue = false 
 	end

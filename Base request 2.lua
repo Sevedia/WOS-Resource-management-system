@@ -121,29 +121,32 @@ local requests = {
 			end
 		end
 	end,]]
-	Moveitem = function(requestingmicro, resources, action, itemtype, quantity)
-		local function Withdraw(itemtype, quantity)
+	Moveitem = function(requestingmicro, resources, action, itemtype, quantity,clienthatch)
+		local function Withdraw(micro,itemtype, quantity,clienthatch)
 			local resource = resources[itemtype].Totalresource
+			clienthatch.SwitchValue = true
 			togglehatch(resources[itemtype].Hatches, true, false)
 			sorterout.Resource = itemtype
 			sorterout.Rate = 0
 			sorterout.TriggerQuantity = 1
-			task.wait()
+			task.wait(.1)
 			sorterout:Sort(quantity)
 			task.wait()
 
-			if resource - quantity ~= verifyitemquanitiy(resources[itemtype].Bins) then
-				requestingmicro:Send(true, "Item has been moved")
+			if resource - quantity == verifyitemquanitiy(resources[itemtype].Bins) then
+				micro:Send(true, "Item has been moved")
 			else
-				requestingmicro:Send(false, "Item has failed to move")
+				micro:Send(false, "Item has failed to move")
 			end
 			
 			togglehatch(resources[itemtype].Hatches, false, false)
-			sorterout.Resource = nil
+			clienthatch.SwitchValue = false
+			sorterout.Resource = "nil"
 		end
 
-		local function Deposit(itemtype, quantity)
+		local function Deposit(requestingmicro,itemtype, quantity,clienthatch)
 			local resource = resources[itemtype].Totalresource
+			clienthatch.SwitchValue = true
 			togglehatch(resources[itemtype].Hatches, true, false)
 			sorterin.Resource = itemtype
 			sorterin.Rate = 0
@@ -152,20 +155,21 @@ local requests = {
 			sorterin:Sort(quantity)
 			task.wait()
 
-			if resource + quantity ~= verifyitemquanitiy(resources[itemtype].Bins) then
+			if resource + quantity == verifyitemquanitiy(resources[itemtype].Bins) then
 				requestingmicro:Send(true, "Item has been moved")
 			else
 				requestingmicro:Send(false, "Item has failed to move")
 			end
 
 			togglehatch(resources[itemtype].Hatches, false, false)
-			sorterin.Resource = nil
+			clienthatch.SwitchValue = false
+			sorterin.Resource = "nil"
 		end
 
 		if action == "Withdraw" then
 			if securitycheck(requestingmicro) == true then
 				if resources[itemtype] and (resources[itemtype].Totalresource - quantity >= 0) then
-					Withdraw(itemtype, quantity)
+					Withdraw(requestingmicro,itemtype, quantity,clienthatch)
 				else
 					requestingmicro:Send(
 						false,
@@ -181,7 +185,7 @@ local requests = {
 					resources[itemtype]
 					and (resources[itemtype].Totalresource + quantity <= resources[itemtype].Maxresource)
 				then
-					Deposit(itemtype, quantity)
+					Deposit(itemtype, quantity,clienthatch)
 				else
 					requestingmicro:Send(false, "Either no resources of that type or storage is full")
 					print(itemtype, quantity, resources[itemtype].Maxresource)

@@ -37,7 +37,7 @@ local Raw_resource_data = {}
 local Keyboard_inputs = {}
 
 if disk:Read("Raw_resource_data") then
-	Raw_resource_data = disk:Read("Raw_resource_data")
+	Raw_resource_data = disk:Decompress(JSONDecode(disk:Read("Raw_resource_data")))
 end
 
 local Colors = {
@@ -901,7 +901,7 @@ local function Updateresourceamount()
 				end
 			end
 		end
-		disk:Write("Raw_resource_data", Raw_resource_data)
+		disk:Write("Raw_resource_data", JSONEncode(disk:Compress(Raw_resource_data)))
 		resources = data
 	end)
 
