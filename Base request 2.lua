@@ -7,7 +7,6 @@
     Ports = port
     
     }
-
     [Iron] = { 
         Ports = {port1,port2}
         Filters = {Filter1, Filter2}
@@ -35,20 +34,61 @@ TO-DO
 local storagenet = Network:GetSubnet(16)
 local _repr: typeof(require("@wos/repr")) = (require :: any)("repr")
 local partdata: typeof(require("@wos/partdata")) = (require :: any)("partdata")
+local sorterin = storagenet:GetPartFromPort(5, "Sorter")
+local sorterout = storagenet:GetPartFromPort(6, "Sorter")
 
 local resourcegroups = {}
 print("-------------------------------------------")
 
 local printresourcegroups
 
+--[[local specialgroups = {
+    "Unused",
+    "Temp",
+}]]
+
+-- while this function is currently a place holder eventually it will be very useful to ensure no items are moved around by unathorized partys
+-- not exactly sure how this will work in the future but thats a future me problem, your welcome future me :3
+function securitycheck(requestingmicro: Microcontroller)
+	if requestingmicro:GetOwnerId() == 118486742 then
+		return true
+	else
+		return false
+	end
+end
+
+function togglehatch(hatch_array, newvalue, all: boolean)
+	if all == true then
+		for i, resource in resourcegroups do
+			if resource.Hatches ~= nil then
+				for k, hatch in resource.Hatches do
+					hatch["SwitchValue"] = newvalue
+				end
+			end
+		end
+	else
+		for i, hatch in hatch_array do
+			hatch.SwitchValue = newvalue
+		end
+	end
+end
+
+local function verifyitemquanitiy(bins)
+	local totalresource = 0
+	for i, bin in bins do
+		totalresource += bin:GetResourceAmount()
+	end
+	return totalresource
+end
+
+-- this tablle contains all functions that interact with outside microcontrollers
 local requests = {
-	Deposit = function(requestingmicro, resources, itemtype, quantity)
-		if
-			resources[itemtype] and (resources[itemtype].Totalresource + quantity <= resources[itemtype].Maxresource)
-		then
+	--[[Deposit = function(requestingmicro, resources, itemtype, quantity)
+		if resources[itemtype] and (resources[itemtype].Totalresource < resources[itemtype].Maxresource) then
 			if securitycheck(requestingmicro) then
 				togglehatch(resources[itemtype].Hatches, true)
 
+				task.wait(.2)
 				requestingmicro:Send(true) -- tells the micro it can send the items
 				Microcontroller:Receive() -- recieves the signal that the items have moved
 				resources[itemtype].Totalresource = resources[itemtype].Totalresource + quantity
@@ -62,11 +102,11 @@ local requests = {
 		end
 	end,
 
-	withdraw = function(requestingmicro, resources, itemtype, quantity)
-		if securitycheck() then
+	Withdraw = function(requestingmicro, resources, itemtype, quantity)
+		if securitycheck(requestingmicro) then
 			if resources[itemtype] and (resources[itemtype].Totalresource - quantity >= 0) then
 				togglehatch(resources[itemtype].Hatches, true)
-
+				task.wait(.2)
 				requestingmicro:Send(true)
 				task.spawn(function()
 					Microcontroller:Receive()
@@ -79,7 +119,82 @@ local requests = {
 					itemtype
 				)
 			end
-			print("security check failed")
+		end
+	end,]]
+	Moveitem = function(requestingmicro, resources, action, itemtype, quantity,clienthatch)
+		local function Withdraw(micro,itemtype, quantity,clienthatch)
+			local resource = resources[itemtype].Totalresource
+			clienthatch.SwitchValue = true
+			togglehatch(resources[itemtype].Hatches, true, false)
+			sorterout.Resource = itemtype
+			sorterout.Rate = 0
+			sorterout.TriggerQuantity = 1
+			task.wait(.1)
+			sorterout:Sort(quantity)
+			task.wait()
+
+			if resource - quantity == verifyitemquanitiy(resources[itemtype].Bins) then
+				micro:Send(true, "Item has been moved")
+			else
+				micro:Send(false, "Item has failed to move")
+			end
+			
+			togglehatch(resources[itemtype].Hatches, false, false)
+			clienthatch.SwitchValue = false
+			sorterout.Resource = "nil"
+		end
+
+		local function Deposit(requestingmicro,itemtype, quantity,clienthatch)
+			local resource = resources[itemtype].Totalresource
+			clienthatch.SwitchValue = true
+			togglehatch(resources[itemtype].Hatches, true, false)
+			sorterin.Resource = itemtype
+			sorterin.Rate = 0
+			sorterin.TriggerQuantity = 1
+			task.wait()
+			sorterin:Sort(quantity)
+			task.wait()
+
+			if resource + quantity == verifyitemquanitiy(resources[itemtype].Bins) then
+				requestingmicro:Send(true, "Item has been moved")
+			else
+				requestingmicro:Send(false, "Item has failed to move")
+			end
+
+			togglehatch(resources[itemtype].Hatches, false, false)
+			clienthatch.SwitchValue = false
+			sorterin.Resource = "nil"
+		end
+
+		if action == "Withdraw" then
+			if securitycheck(requestingmicro) == true then
+				if resources[itemtype] and (resources[itemtype].Totalresource - quantity >= 0) then
+					Withdraw(requestingmicro,itemtype, quantity,clienthatch)
+				else
+					requestingmicro:Send(
+						false,
+						"Either no resources of that type or requested more than whats in storage"
+					)
+				end
+			else
+				requestingmicro:Send(false, "Security check failed")
+			end
+		elseif action == "Deposit" then
+			if securitycheck(requestingmicro) == true then
+				if
+					resources[itemtype]
+					and (resources[itemtype].Totalresource + quantity <= resources[itemtype].Maxresource)
+				then
+					Deposit(itemtype, quantity,clienthatch)
+				else
+					requestingmicro:Send(false, "Either no resources of that type or storage is full")
+					print(itemtype, quantity, resources[itemtype].Maxresource)
+				end
+			else
+				requestingmicro:Send(false, "Security check failed")
+			end
+		else
+			print("Storage Server: invalid command")
 		end
 	end,
 
@@ -130,6 +245,10 @@ local requests = {
 					port_group.Hatches[1].SwitchValue = false
 					requestingmicro:Send(true, "Success")
 				elseif string.lower(movedirection) == "empty" then -- empties the resource group into the temp bins
+					for i, v in resources.Temp.Tempnet:GetParts("Bin") do
+						v.Resource = resourcetomove
+					end
+
 					resources.Temp.SorterIn.Resource = resourcetomove
 					resources.Temp.SorterIn.Rate = 0
 					resources.Temp.Hatch.SwitchValue = true
@@ -169,11 +288,6 @@ local requests = {
 	end,
 }
 
---[[local specialgroups = {
-    "Unused",
-    "Temp",
-}]]
-
 function Getbingroups(net)
 	local resources = {}
 	resources.Unused = {}
@@ -208,6 +322,7 @@ function Getbingroups(net)
 			resources[Filter_resource].ItemsperGroup = { 0 }
 
 			for k, bin in subnet:GetParts("Bin") do
+				bin.Resource = Filter_resource
 				resources[Filter_resource].Bins[#resources[Filter_resource].Bins + 1] = bin
 				resources[Filter_resource].Totalresource += bin:GetResourceAmount()
 				resources[Filter_resource].Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
@@ -252,26 +367,10 @@ function Getbingroups(net)
 	return resources
 end
 
--- while this function is currently a place holder eventually it will be very useful to ensure no items are moved around by unathorized partys
--- not exactly sure how this will work in the future but thats a future me problem, your welcome future me :3
-function securitycheck(requestingmicro)
-	--print(type(requestingmicro:GetOwnerId()))
-	if requestingmicro:GetOwnerId() == 118486742 then
-		return true
-	end
-	return false
-end
-
-function togglehatch(hatch_array, newvalue)
-	for i, hatch in hatch_array do
-		hatch.SwitchValue = newvalue
-	end
-end
-
 function getportresourcegroup(port, net)
 	local portnet = net:GetSubnet(port)
 	local port_group = {}
-	port_group.Bins = {}
+	--port_group.Bins = {}
 	port_group.Totalresource = 0
 	port_group.Maxresource = 0
 
@@ -280,7 +379,7 @@ function getportresourcegroup(port, net)
 	port_group.Hatches = { portnet:GetPart("Hatch") }
 
 	for i, bin in portnet:GetParts("Bin") do
-		table.insert(port_group.Bins, bin)
+		--table.insert(port_group.Bins, bin)
 		port_group.Totalresource += bin:GetResourceAmount()
 
 		port_group.Maxresource += (bin.Size.X * bin.Size.Y * bin.Size.Z)
@@ -302,10 +401,30 @@ function printresourcegroups()
 end
 
 printresourcegroups()
+
 -- main function
 while task.wait() do
 	local values = { Microcontroller:Receive() }
+	local thread
+	--if requests[values[2]] then the original function before implementing threads to prevent any task getting stuck sending or recieving signal
+	--requests[values[2]](values[1], resourcegroups, table.unpack(values, 3))
+	--end]]
+	
 	if requests[values[2]] then
-		requests[values[2]](values[1], resourcegroups, table.unpack(values, 3))
+		thread = task.spawn(requests[values[2]], values[1], resourcegroups, table.unpack(values, 3))
+
+		task.delay(0.5, function(thread)
+			if coroutine.status(thread) ~= "dead" then
+				print("Storage server closing connection")
+				task.cancel(thread)
+			end
+		end, thread)
+
+		repeat
+			task.wait()
+		until coroutine.status(thread) == "dead"
+		-- ensure all hatches are closed and checks all resources in storage
+		togglehatch({}, false, true)
+		resourcegroups = Getbingroups(storagenet)
 	end
 end

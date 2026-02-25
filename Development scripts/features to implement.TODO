@@ -1,0 +1,20 @@
+The ability to temporarily lock down the system such as blocking all resources from entering or all resources from leaving 
+The ability to control crafts from the center console
+
+The ability to schedule minumum amounts of items or item amounts to automatically be crafted 
+
+Export items to another system such as cargo vehicle
+
+ensure all the required items are in storage before starting craft
+
+add suuport for tanks and fluids
+
+muilti core assembler unit
+
+Implement a que system for to prevent muiltiple items from trying to move at one time
+
+
+test the systems ability to work with larger or smaller bin groups, and Implement a way of keeping track of them
+
+
+

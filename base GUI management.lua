@@ -37,7 +37,7 @@ local Raw_resource_data = {}
 local Keyboard_inputs = {}
 
 if disk:Read("Raw_resource_data") then
-	Raw_resource_data = disk:Read("Raw_resource_data")
+	Raw_resource_data = disk:Decompress(JSONDecode(disk:Read("Raw_resource_data")))
 end
 
 local Colors = {
@@ -689,6 +689,20 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 		name = "Graph",
 	})
 	UICorner(graphframe)
+	local points = 0
+	if Raw_resource_data[resource] then 
+		points = #Raw_resource_data[resource]
+	end 
+
+	local graphpointnum = UITextlabel(page, {
+		color = Colors.ButtonBlue,
+		size = UDim2.new(0.59, 0, 0.07, 0),
+		position = UDim2.new(0.41, 0, 0.93, 0),
+		text = points,
+		name = "graphpointnum",
+	})
+	UICorner(graphpointnum)
+
 
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.Parent = graphframe
@@ -815,7 +829,6 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 	end
 
 	backbutton.MouseButton1Click:Connect(function()
-		print("switching")
 		switchpage("Resources")
 		for i, v in graphframe:GetChildren() do
 			if v.ClassName == "Frame" then
@@ -888,7 +901,7 @@ local function Updateresourceamount()
 				end
 			end
 		end
-		disk:Write("Raw_resource_data", Raw_resource_data)
+		disk:Write("Raw_resource_data", JSONEncode(disk:Compress(Raw_resource_data)))
 		resources = data
 	end)
 
@@ -897,7 +910,6 @@ local function Updateresourceamount()
 end
 
 function switchpage(page)
-	print("attempting to switch")
 	if GuiObjects.infoframe:FindFirstChild(page) then
 		--updateresourcepage()
 		local frame = GuiObjects.infoframe:FindFirstChild(page)
@@ -908,6 +920,8 @@ function switchpage(page)
 		if currentpage:GetAttribute("FrameType") == "Resourcepage" then
 			local averagedpoints = average(Raw_resource_data[page], average_data_points)
 
+			currentpage:FindFirstChild("graphpointnum").Text = #Raw_resource_data[page] or 0
+
 			if resources[page].ItemsperGroup then
 				populatetable(currentpage.Tableframe, resources, page)
 			end
@@ -915,6 +929,7 @@ function switchpage(page)
 			if averagedpoints then
 				Creategraph(currentpage["Graph"], averagedpoints)
 			else
+
 				local _graphtext = UITextlabel(currentpage["Graph"], {
 					color = Colors.BackgroundGreen,
 					size = UDim2.new(1, 0, 1, 0),
@@ -928,6 +943,7 @@ function switchpage(page)
 	else
 		currentpage.Visible = false
 		currentpage = createresourcepage(page, resources, GuiObjects, average(Raw_resource_data[page], average_data_points))
+		
 	end
 end
 
