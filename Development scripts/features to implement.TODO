@@ -1,11 +1,8 @@
 The ability to temporarily lock down the system such as blocking all resources from entering or all resources from leaving 
-The ability to control crafts from the center console
 
 The ability to schedule minumum amounts of items or item amounts to automatically be crafted 
 
 Export items to another system such as cargo vehicle
-
-ensure all the required items are in storage before starting craft
 
 add suuport for tanks and fluids
 
@@ -13,8 +10,15 @@ muilti core assembler unit
 
 Implement a que system for to prevent muiltiple items from trying to move at one time
 
+improve the refresh system on the gui so i dont have to manually code quite as much for it to work
 
-test the systems ability to work with larger or smaller bin groups, and Implement a way of keeping track of them
+------Working on 
+The ability to control crafts from the center console
 
+
+--------completed 
+-- done:  implement a way to control which bin group is moved
+-- done:  test the systems ability to work with larger or smaller bin groups, and Implement a way of keeping track of them
+-- done:  ensure all the required items are in storage before starting craft 
 
 

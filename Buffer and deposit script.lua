@@ -56,8 +56,8 @@ while task.wait(1) do
 	sendmessage("GetResources")
 	bins = Network:GetPartsFromPort(3, "Bin")
 	for i, v in bins do
+		task.wait(1)
 		if v:GetResourceAmount() >= bufferamount then
-			task.wait(0.1)
 			local resourcetype = v.GetResource()
 			if
 				resourcegroups[resourcetype]

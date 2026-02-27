@@ -77,7 +77,7 @@ local function buffercheck(quantity)
 	for i, v in bufferbins do
 		local maxamount = (v.Size.X * v.Size.Y * v.Size.Z)
 
-		if v:GetAmount() == 0 then
+		if v:GetResourceAmount() == 0 then
 			if maxamount > quantity then
 				quantity = 0
 				return bineeded
@@ -110,7 +110,7 @@ local function allocatebins(recipe)
 	for item,quantity in recipe do 
 		local amountleft = quantity
 		for i,bin in bufferbins do 
-			if bin:GetAmount() == 0 then 
+			if bin:GetResourceAmount() == 0 then 
 				local size = (bin.Size.X * bin.Size.Y * bin.Size.Z)
 				amountleft -= size
 				bin.Resource = item

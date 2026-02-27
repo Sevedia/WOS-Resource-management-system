@@ -36,7 +36,13 @@ local resources = {}
 local Raw_resource_data = {}
 local Keyboard_inputs = {}
 
+
+-- i have found an odd bug that sometimes the disk on server startup the data loads after the micro starts up.
+-- which can cause the micro to think theres no data even though there is and overwriting all previous data
 if disk:Read("Raw_resource_data") then
+	Raw_resource_data = disk:Decompress(JSONDecode(disk:Read("Raw_resource_data")))
+else 
+	task.wait(5)
 	Raw_resource_data = disk:Decompress(JSONDecode(disk:Read("Raw_resource_data")))
 end
 
@@ -96,7 +102,7 @@ commands = {
 				if commands.changegroup.Data.Pressed == false then
 					table.clear(Keyboard_inputs)
 					commands.changegroup.Data.Pressed = true
-					GuiObjects.Out1.Text = "Enter Resource 1"
+					GuiObjects.Out1.Text = "Enter Resource 1 + group id"
 					GuiObjects.Out2.Text = "Enter Resource 2"
 				else
 					return
@@ -109,20 +115,25 @@ commands = {
 					end
 					-- Gets the two input values from the keyboard and ensures they are valid material types or Unused for blank groups
 					for i, v in Keyboard_inputs do
-						Keyboard_inputs[i] = string.match(v, "[^\n]*")
-						if partdata.Parts[Keyboard_inputs[i]] or Keyboard_inputs[i] == "Unused" then
+						Keyboard_inputs[i] = string.match(v, "[^\n]+%S")
+						local item = string.match(Keyboard_inputs[i], "%a+")
+						local id = tonumber(string.match(Keyboard_inputs[i],"%d+"))
+						
+						if (partdata.Parts[item] or item == "Unused") and 
+						((id and resources[item].Ports[id] and i == 1) or (i==2 and not id)) then
+
 							if GuiObjects.Out1.Text ~= Keyboard_inputs[i] and i == 1 then
 								GuiObjects.Out1.Text = Keyboard_inputs[i]
 							elseif GuiObjects.Out2.Text ~= Keyboard_inputs[i] and i == 2 then
 								GuiObjects.Out2.Text = Keyboard_inputs[i]
 							end
 						else
-							if i == 1 then
-								GuiObjects.Out1.Text = "type doesnt exist"
-							elseif i == 2 then
+							if i == 1 and GuiObjects.Out1.Text ~= "type doesnt exist" then
+								GuiObjects.Out1.Text = "type doesnt exist or no group id"
+							elseif i == 2 and GuiObjects.Out2.Text ~= "type doesnt exist" then
 								GuiObjects.Out2.Text = "type doesnt exist"
 							end
-
+		
 							print("Resource type doesnt exist")
 							Keyboard_inputs[i] = nil
 						end
@@ -667,6 +678,18 @@ local function populatetable(parent, data, resource)
 			name = "Value",
 		})
 		UICorner(Val)
+		if data[resource].MaxItemsperGroup then 
+			local max = UITextlabel(guide, {
+			color = Colors.ButtonBlue,
+			size = UDim2.new(0, 0, 0.15, 0),
+			position = UDim2.new(0, 0, 0, 0),
+			text = data[resource].MaxItemsperGroup[i],
+			name = "Max",
+			})
+			UICorner(max)
+		end
+		
+
 	end
 end
 
@@ -785,14 +808,25 @@ local function createresourcepage(resource, data, gui, averagedpoints)
 		})
 		UICorner(group)
 
-		local quantity = UITextlabel(guide, {
+		local Total = UITextlabel(guide, {
 			color = Colors.ButtonBlue,
 			size = UDim2.new(0, 0, 0.15, 0),
 			position = UDim2.new(0, 0, 0, 0),
-			text = "Quantity",
-			name = "Quantity",
+			text = "Total",
+			name = "Total",
 		})
-		UICorner(quantity)
+		UICorner(Total)
+
+		if data[resource].MaxItemsperGroup then 
+			local max = UITextlabel(guide, {
+				color = Colors.ButtonBlue,
+				size = UDim2.new(0, 0, 0.15, 0),
+				position = UDim2.new(0, 0, 0, 0),
+				text = "Max",
+				name = "Max",
+			})
+			UICorner(max)
+		end 
 
 		populatetable(tablescrol, data, resource)
 
@@ -918,10 +952,13 @@ function switchpage(page)
 		currentpage = frame
 
 		if currentpage:GetAttribute("FrameType") == "Resourcepage" then
-			local averagedpoints = average(Raw_resource_data[page], average_data_points)
+			local averagedpoints 
+			if Raw_resource_data[page] then 
+				averagedpoints = average(Raw_resource_data[page], average_data_points)
+				currentpage:FindFirstChild("graphpointnum").Text = #Raw_resource_data[page] or 0
 
-			currentpage:FindFirstChild("graphpointnum").Text = #Raw_resource_data[page] or 0
-
+			end
+			
 			if resources[page].ItemsperGroup then
 				populatetable(currentpage.Tableframe, resources, page)
 			end
@@ -1041,8 +1078,8 @@ while task.wait(2) do
 					currentpage["Tableframe"]["Index"]["Group"].Text = "Group"
 				end
 
-				if currentpage["Tableframe"]["Index"]["Quantity"].Text ~= "Quantity" then
-					currentpage["Tableframe"]["Index"]["Quantity"].Text = "Quantity"
+				if currentpage["Tableframe"]["Index"]["Total"].Text ~= "Total" then
+					currentpage["Tableframe"]["Index"]["Total"].Text = "Total"
 				end
 
 				local indexes = 0
